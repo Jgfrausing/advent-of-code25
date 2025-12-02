@@ -1,3 +1,7 @@
+// For task 2 I was missing an edge case where the dial starts at position 0
+// I found it by implementing a fool-proof version of the rotate function that simulates each step
+// and comparing the results with the optimized version
+
 fn main() {
     // read file of rotations
     let file_name = "input.txt";
@@ -8,9 +12,21 @@ fn main() {
         rotations.push(rotation);
     }
     let mut dial = Dial::new(50);
+    let mut dial_old = Dial::new(50);
 
     for rotation in rotations {
-        dial.rotate(rotation);
+        println!("rotation: {rotation:?} on dial {dial:?}");
+        dial.rotate_fool_proof(rotation);
+        dial_old.rotate(rotation);
+        assert_eq!(dial.position, dial_old.position, "position");
+        assert_eq!(
+            dial.times_at_position_zero, dial_old.times_at_position_zero,
+            "times at"
+        );
+        assert_eq!(
+            dial.times_ending_at_position_zero, dial_old.times_ending_at_position_zero,
+            "times ending at"
+        );
     }
     println!("dial: {dial:?}")
 }
@@ -30,15 +46,24 @@ impl Dial {
             times_ending_at_position_zero: 0,
         }
     }
+
     fn rotate(&mut self, rotation: Rotation) {
-        let full_turns = (rotation.0 / 100).abs() as u64;
+        let full_turns: u64 = (rotation.0 / 100).abs().try_into().unwrap();
         self.times_at_position_zero += full_turns;
 
         let rotation = rotation.reduce();
         if rotation.0 != 0 {
             let indicator = self.position + rotation.0;
-            if indicator <= 0 || indicator >= 100 {
-                self.times_at_position_zero += 1;
+            if self.position > 0 {
+                // rotating right
+                if indicator <= 0 || indicator >= 100 {
+                    self.times_at_position_zero += 1;
+                }
+            } else if self.position < 0 {
+                // rotating left
+                if indicator <= -100 || indicator >= 0 {
+                    self.times_at_position_zero += 1;
+                }
             }
         }
 
@@ -47,9 +72,35 @@ impl Dial {
             self.times_ending_at_position_zero += 1;
         }
     }
+
+    fn rotate_fool_proof(&mut self, rotation: Rotation) {
+        let positive = rotation.0 > 0;
+        let absolute_value = rotation.0.abs();
+        for _ in 0..absolute_value {
+            if positive {
+                self.position += 1;
+            } else {
+                self.position -= 1;
+            }
+
+            if self.position < 0 {
+                self.position = 99;
+            } else if self.position > 99 {
+                self.position = 0;
+            }
+
+            if self.position == 0 {
+                self.times_at_position_zero += 1;
+            }
+        }
+
+        if self.position == 0 {
+            self.times_ending_at_position_zero += 1;
+        }
+    }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 struct Rotation(i64);
 
 impl Rotation {
@@ -104,53 +155,57 @@ mod tests {
     #[test]
     fn rotate() {
         let mut dial = Dial::new(50);
-        dial.rotate(Rotation(100));
+        dial.rotate_fool_proof(Rotation(100));
 
         assert_eq!(dial.position, 50);
         assert_eq!(dial.times_at_position_zero, 1);
         assert_eq!(dial.times_ending_at_position_zero, 0);
 
-        dial.rotate(Rotation(-100));
+        dial.rotate_fool_proof(Rotation(-100));
         assert_eq!(dial.position, 50);
         assert_eq!(dial.times_at_position_zero, 2);
         assert_eq!(dial.times_ending_at_position_zero, 0);
 
-        dial.rotate(Rotation(-50));
+        dial.rotate_fool_proof(Rotation(-50));
         assert_eq!(dial.position, 0);
         assert_eq!(dial.times_at_position_zero, 3);
         assert_eq!(dial.times_ending_at_position_zero, 1);
 
-        dial.rotate(Rotation(1));
+        dial.rotate_fool_proof(Rotation(1));
         assert_eq!(dial.position, 1);
         assert_eq!(dial.times_at_position_zero, 3);
         assert_eq!(dial.times_ending_at_position_zero, 1);
 
-        dial.rotate(Rotation(-2));
+        dial.rotate_fool_proof(Rotation(-2));
         assert_eq!(dial.position, 99);
         assert_eq!(dial.times_at_position_zero, 4);
         assert_eq!(dial.times_ending_at_position_zero, 1);
 
-        dial.rotate(Rotation(-99));
+        dial.rotate_fool_proof(Rotation(-99));
         assert_eq!(dial.position, 0);
         assert_eq!(dial.times_at_position_zero, 5);
         assert_eq!(dial.times_ending_at_position_zero, 2);
 
-        dial.rotate(Rotation(50));
+        dial.rotate_fool_proof(Rotation(50));
         assert_eq!(dial.position, 50);
         assert_eq!(dial.times_at_position_zero, 5);
         assert_eq!(dial.times_ending_at_position_zero, 2);
 
-        dial.rotate(Rotation(10000));
+        dial.rotate_fool_proof(Rotation(10000));
         assert_eq!(dial.position, 50);
         assert_eq!(dial.times_at_position_zero, 105);
         assert_eq!(dial.times_ending_at_position_zero, 2);
 
-        dial.rotate(Rotation(50));
+        dial.rotate_fool_proof(Rotation(50));
         assert_eq!(dial.position, 0);
         assert_eq!(dial.times_at_position_zero, 106);
 
-        dial.rotate(Rotation(-10000));
+        dial.rotate_fool_proof(Rotation(-10000));
         assert_eq!(dial.position, 0);
         assert_eq!(dial.times_at_position_zero, 206);
+
+        dial.rotate_fool_proof(Rotation(100));
+        assert_eq!(dial.position, 0);
+        assert_eq!(dial.times_at_position_zero, 207);
     }
 }
