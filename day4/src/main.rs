@@ -2,8 +2,8 @@ fn main() {
     let input = std::fs::read_to_string("input.txt").expect("Failed to read file");
     let lines = input.lines();
     let grid = Grid::new(lines);
-    task1(grid);
-    //task2(&lines);
+    //task1(grid);
+    task2(grid);
 }
 
 fn task1(mut grid: Grid) {
@@ -24,6 +24,34 @@ fn task1(mut grid: Grid) {
     grid.draw();
 
     assert_eq!(marked_cells.len(), 13);
+}
+
+fn task2(mut grid: Grid) {
+    let mut marked_cells = 0;
+    loop {
+        let mut removed_this_iteration = Vec::new();
+        for x in 0..grid.cells.len() {
+            for (y, cell) in grid.cells[x].iter().enumerate() {
+                if cell.has_roll {
+                    let count = grid.count_surounding_rolls(x, y);
+                    if count < 4 {
+                        removed_this_iteration.push((x, y));
+                    }
+                }
+            }
+        }
+        if removed_this_iteration.is_empty() {
+            break;
+        }
+        for marked in removed_this_iteration.iter() {
+            grid.cells[marked.0][marked.1].has_roll = false;
+        }
+        marked_cells += removed_this_iteration.len();
+    }
+
+    grid.draw();
+
+    assert_eq!(marked_cells, 43);
 }
 
 struct Cell {
@@ -76,6 +104,7 @@ impl Grid {
         }
         count
     }
+
     fn get_cell(&self, x: isize, y: isize) -> Option<&Cell> {
         if x >= 0 && y >= 0 {
             self.cells
